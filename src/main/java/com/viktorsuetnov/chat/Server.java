@@ -57,9 +57,19 @@ public class Server {
                 user = userAuth(connection);
                 addUser(connection, user);
                 sendMessageToAll(new Message(MessageType.USER_ADDED, user));
+                serverMainLoop(connection, user);
             } catch (IOException | ClassNotFoundException e) {
                 e.printStackTrace();
             }
+        }
+
+        private void serverMainLoop(Connection connection, String user) throws IOException, ClassNotFoundException {
+           while (true) {
+               Message message = connection.readMessage();
+               if (message.getMessageType() == MessageType.MESSAGE) {
+                   sendMessageToAll(new Message(MessageType.MESSAGE, user + ": " + message.getData()));
+               }
+           }
         }
 
         private static void sendMessageToAll(Message message) {
@@ -92,7 +102,6 @@ public class Server {
                 return username;
             }
         }
-
     }
 
     private static void userRegistration(Connection connection) throws IOException, ClassNotFoundException {
