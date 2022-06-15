@@ -26,7 +26,7 @@ public class Connection implements Closeable {
         }
     }
 
-    public Message readMessage() throws IOException, ClassNotFoundException {
+    public Message readMessage() throws IOException {
         synchronized (reader) {
             return gson.fromJson(reader.readLine(), Message.class);
         }

@@ -3,8 +3,7 @@ package com.viktorsuetnov.chat;
 import java.io.IOException;
 import java.net.Socket;
 
-import static com.viktorsuetnov.chat.Helper.readInt;
-import static com.viktorsuetnov.chat.Helper.readString;
+import static com.viktorsuetnov.chat.Helper.*;
 
 public class Client {
 
@@ -12,12 +11,12 @@ public class Client {
     private volatile boolean clientConnected = false;
 
     private String getServerAddress() {
-        System.out.println("Enter server address");
+        showMessage("Enter server address");
         return readString();
     }
 
     private Integer getServerPort() {
-        System.out.println("Enter port");
+        showMessage("Enter port");
         return readInt();
     }
 
@@ -31,12 +30,12 @@ public class Client {
                 this.wait();
             }
         } catch (InterruptedException e) {
-            System.out.println("Connection failed");
+            showMessage("Connection failed");
         }
         if (clientConnected) {
-            System.out.println("Connection established. Print exit to quit");
+            showMessage("Connection established. Print exit to quit");
         } else {
-            System.out.println("Connection failed");
+            showMessage("Connection failed");
         }
         while (clientConnected) {
             try {
@@ -46,7 +45,7 @@ public class Client {
                 } else
                     break;
             } catch (IOException e) {
-                System.out.println("Oops, an error occurred, please try again.");
+                showMessage("Oops, an error occurred, please try again.");
             }
         }
     }
@@ -77,34 +76,40 @@ public class Client {
             while (true) {
                 Message message = connection.readMessage();
                 if (message.getMessageType() == MessageType.AUTHORIZATION) {
-                    System.out.println("Authorization form");
-                    System.out.println("Enter your username");
-                    String username = readString();
-                    System.out.println("Enter your password");
-                    String password = readString();
+                    showMessage("Authorization form");
+                    String username = getUsername();
+                    String password = getPassword();
                     connection.sendMessage(new Message(MessageType.AUTHORIZATION, new User(username, password)));
                 } else if (message.getMessageType() == MessageType.REGISTRATION) {
-                    System.out.println("User with this username is missing");
+                    showMessage("User with this username is missing");
                     registration();
                 } else if (message.getMessageType() == MessageType.USER_ACCEPTED) {
-                    System.out.println("Authorization passed");
+                    showMessage("Authorization passed");
                     break;
                 } else throw new IOException("Unknown message type");
             }
         }
 
-        private void registration() throws IOException, ClassNotFoundException {
+        private String getUsername() {
+            showMessage("Enter your username");
+            return readString();
+        }
+
+        private String getPassword() {
+            showMessage("Enter your password");
+            return readString();
+        }
+
+        private void registration() throws IOException {
+            showMessage("Registration Form");
             while (true) {
-                System.out.println("Registration Form");
-                System.out.println("Username must contains [a-zA-Z_0-9]");
-                System.out.println("Enter your username");
-                String username = readString();
-                System.out.println("Enter your password");
-                String password = readString();
+                showMessage("Username must contains [a-zA-Z_0-9]");
+                String username = getUsername();
+                String password = getPassword();
                 connection.sendMessage(new Message(MessageType.REGISTRATION, new User(username, password)));
                 Message msg = connection.readMessage();
                 if (msg.getMessageType() == MessageType.USER_ACCEPTED) {
-                    System.out.println("Registration successfully!");
+                    showMessage("Registration successfully!");
                     break;
                 }
             }
@@ -117,7 +122,7 @@ public class Client {
             }
         }
 
-        private void clientMainLoop() throws IOException, ClassNotFoundException {
+        private void clientMainLoop() throws IOException {
             while (true) {
                 Message message = connection.readMessage();
                 switch (message.getMessageType()) {

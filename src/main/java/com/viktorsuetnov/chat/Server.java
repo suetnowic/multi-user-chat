@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.viktorsuetnov.chat.Helper.readInt;
+import static com.viktorsuetnov.chat.Helper.showMessage;
 
 public class Server {
 
@@ -15,10 +16,10 @@ public class Server {
     private static Map<String, String> userMap = new ConcurrentHashMap<>();
 
     public static void main(String[] args) {
-        System.out.println("Please enter server port: ");
+        showMessage("Please enter server port: ");
         Integer port = readInt();
         try (ServerSocket socket = new ServerSocket(port)) {
-            System.out.println("server started successfully");
+            showMessage("server started successfully");
             while (true) {
                 try (Socket client = socket.accept()) {
                     Handler handler = new Handler(client);
@@ -28,7 +29,7 @@ public class Server {
                 }
             }
         } catch (IOException e) {
-            System.err.println("Server connection error");
+            showMessage("Server connection error");
         }
     }
 
@@ -47,7 +48,7 @@ public class Server {
 
             try (Connection connection = new Connection(socket)) {
                 remoteSocketAddress = connection.getRemoteSocketAddress();
-                System.out.println("New connection from " + remoteSocketAddress);
+                showMessage("New connection from " + remoteSocketAddress);
                 user = userAuth(connection);
                 addUser(connection, user);
                 sendMessageToAll(new Message(MessageType.USER_ADDED, user));
@@ -71,7 +72,7 @@ public class Server {
                 try {
                     connect.getValue().sendMessage(message);
                 } catch (IOException e) {
-                    System.out.println("Message not sent");
+                    showMessage("Message not sent");
                 }
             }
         }
