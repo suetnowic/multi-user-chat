@@ -1,13 +1,13 @@
 package com.viktorsuetnov.chat;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
+import static com.viktorsuetnov.chat.Helper.readInt;
 
 public class Server {
 
@@ -16,13 +16,7 @@ public class Server {
 
     public static void main(String[] args) {
         System.out.println("Please enter server port: ");
-        BufferedReader readerServerPort = new BufferedReader(new InputStreamReader(System.in));
-        Integer port = null;
-        try {
-            port = Integer.parseInt(readerServerPort.readLine());
-        } catch (IOException e) {
-            System.out.println("Oops, an error occurred, please try again.");
-        }
+        Integer port = readInt();
         try (ServerSocket socket = new ServerSocket(port)) {
             System.out.println("server started successfully");
             while (true) {
