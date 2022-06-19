@@ -4,21 +4,12 @@ import java.io.IOException;
 import java.net.Socket;
 
 import static com.viktorsuetnov.chat.Helper.*;
+import static com.viktorsuetnov.chat.MessageType.*;
 
 public class Client {
 
     private Connection connection;
     private volatile boolean clientConnected = false;
-
-    private String getServerAddress() {
-        showMessage("Enter server address");
-        return readString();
-    }
-
-    private Integer getServerPort() {
-        showMessage("Enter port");
-        return readInt();
-    }
 
     public void run() {
         SocketThread socketThread = new SocketThread();
@@ -38,22 +29,42 @@ public class Client {
             showMessage("Connection failed");
         }
         while (clientConnected) {
-            try {
-                String message = readString();
-                if (!message.equalsIgnoreCase("exit") && clientConnected) {
-                    connection.sendMessage(new Message(MessageType.MESSAGE, message));
-                } else
-                    break;
-            } catch (IOException e) {
-                showMessage("Oops, an error occurred, please try again.");
-            }
+            String message = readString();
+            if (!message.equalsIgnoreCase("exit") && clientConnected) {
+                connection.sendMessage(new Message(MESSAGE, message));
+            } else
+                break;
         }
+    }
+
+    private String getServerAddress() {
+        showMessage("Enter server address");
+        return readString();
+    }
+
+    private Integer getServerPort() {
+        showMessage("Enter port");
+        return readInt();
+    }
+
+    private String getUsername() {
+        showMessage("Enter your username");
+        return readString();
+    }
+
+    private String getPassword() {
+        showMessage("Enter your password");
+        return readString();
+    }
+
+    private int getRoomNumber() {
+        showMessage("Choose a room");
+        return readInt();
     }
 
     public static void main(String[] args) {
         new Client().run();
     }
-
 
     private class SocketThread extends Thread {
 
@@ -61,43 +72,33 @@ public class Client {
         public void run() {
             String host = getServerAddress();
             int port = getServerPort();
-
             try {
                 Socket socket = new Socket(host, port);
                 connection = new Connection(socket);
                 authorization();
+                chooseRoom();
                 clientMainLoop();
-            } catch (IOException | ClassNotFoundException e) {
+            } catch (IOException e) {
                 connectionStatusChanged(false);
             }
         }
 
-        private void authorization() throws IOException, ClassNotFoundException {
+        private void authorization() throws IOException {
             while (true) {
-                Message message = connection.readMessage();
-                if (message.getMessageType() == MessageType.AUTHORIZATION) {
+                Message message = connection.receiveMessage();
+                if (message.getMessageType() == AUTHORIZATION) {
                     showMessage("Authorization form");
                     String username = getUsername();
                     String password = getPassword();
-                    connection.sendMessage(new Message(MessageType.AUTHORIZATION, new User(username, password)));
-                } else if (message.getMessageType() == MessageType.REGISTRATION) {
+                    connection.sendMessage(new Message(AUTHORIZATION, new User(username, password)));
+                } else if (message.getMessageType() == REGISTRATION) {
                     showMessage("User with this username is missing");
                     registration();
-                } else if (message.getMessageType() == MessageType.USER_ACCEPTED) {
+                } else if (message.getMessageType() == USER_ACCEPTED) {
                     showMessage("Authorization passed");
                     break;
                 } else throw new IOException("Unknown message type");
             }
-        }
-
-        private String getUsername() {
-            showMessage("Enter your username");
-            return readString();
-        }
-
-        private String getPassword() {
-            showMessage("Enter your password");
-            return readString();
         }
 
         private void registration() throws IOException {
@@ -106,9 +107,9 @@ public class Client {
                 showMessage("Username must contains [a-zA-Z_0-9]");
                 String username = getUsername();
                 String password = getPassword();
-                connection.sendMessage(new Message(MessageType.REGISTRATION, new User(username, password)));
-                Message msg = connection.readMessage();
-                if (msg.getMessageType() == MessageType.USER_ACCEPTED) {
+                connection.sendMessage(new Message(REGISTRATION, new User(username, password)));
+                Message msg = connection.receiveMessage();
+                if (msg.getMessageType() == USER_ACCEPTED) {
                     showMessage("Registration successfully!");
                     break;
                 }
@@ -122,18 +123,31 @@ public class Client {
             }
         }
 
+        private void chooseRoom() throws IOException {
+            while (true) {
+                Message message = connection.receiveMessage();
+                if (message.getMessageType() == ROOM_CHOICE) {
+                    int roomNumber = getRoomNumber();
+                    connection.sendMessage(new Message(ROOM_CHOICE, roomNumber));
+                } else if (message.getMessageType() == USER_ACCEPTED) {
+                    connectionStatusChanged(true);
+                    break;
+                }
+            }
+        }
+
         private void clientMainLoop() throws IOException {
             while (true) {
-                Message message = connection.readMessage();
+                Message message = connection.receiveMessage();
                 switch (message.getMessageType()) {
                     case MESSAGE:
-                        System.out.println(message.getData());
+                        showMessage(message.getData());
                         break;
                     case USER_ADDED:
-                        System.out.println(String.format("%s join to chat " + message.getData()));
+                        showMessage(String.format("%s join to chat ", message.getData()));
                         break;
                     case USER_REMOVED:
-                        System.out.println(String.format("%s left chat " + message.getData()));
+                        showMessage(String.format("%s left chat ", message.getUser()));
                         break;
                     default:
                         throw new IOException("Unknown message type");
@@ -141,4 +155,6 @@ public class Client {
             }
         }
     }
+
+
 }

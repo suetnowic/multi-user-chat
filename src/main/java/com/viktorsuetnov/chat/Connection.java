@@ -9,24 +9,24 @@ import java.net.SocketAddress;
 public class Connection implements Closeable {
 
     private final Socket socket;
-    private final BufferedReader reader;
     private final PrintWriter writer;
+    private final BufferedReader reader;
     private final Gson gson = new Gson();
 
     public Connection(Socket socket) throws IOException {
         this.socket = socket;
-        this.reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
         this.writer = new PrintWriter(socket.getOutputStream());
+        this.reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
     }
 
-    public void sendMessage(Message message) throws IOException {
+    public void sendMessage(Message message) {
         synchronized (writer) {
             writer.println(gson.toJson(message));
             writer.flush();
         }
     }
 
-    public Message readMessage() throws IOException {
+    public Message receiveMessage() throws IOException {
         synchronized (reader) {
             return gson.fromJson(reader.readLine(), Message.class);
         }

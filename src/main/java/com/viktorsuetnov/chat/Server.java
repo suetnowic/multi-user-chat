@@ -9,24 +9,20 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static com.viktorsuetnov.chat.Helper.readInt;
 import static com.viktorsuetnov.chat.Helper.showMessage;
+import static com.viktorsuetnov.chat.MessageType.*;
 
 public class Server {
 
-    private static Map<String, Connection> connectionMap = new ConcurrentHashMap<>();
+    private static Map<Integer, Map<String, Connection>> connectionMap = new ConcurrentHashMap<>();
     private static Map<String, String> userMap = new ConcurrentHashMap<>();
 
     public static void main(String[] args) {
         showMessage("Please enter server port: ");
-        Integer port = readInt();
-        try (ServerSocket socket = new ServerSocket(port)) {
+        try {
+            ServerSocket socket = new ServerSocket(readInt());
             showMessage("server started successfully");
             while (true) {
-                try (Socket client = socket.accept()) {
-                    Handler handler = new Handler(client);
-                    handler.start();
-                } catch (Exception e) {
-                    return;
-                }
+                new Handler(socket.accept()).start();
             }
         } catch (IOException e) {
             showMessage("Server connection error");
@@ -44,71 +40,80 @@ public class Server {
         @Override
         public void run() {
             SocketAddress remoteSocketAddress;
-            String user = null;
-
+            String user;
+            Integer roomNumber;
             try (Connection connection = new Connection(socket)) {
                 remoteSocketAddress = connection.getRemoteSocketAddress();
                 showMessage("New connection from " + remoteSocketAddress);
                 user = userAuth(connection);
-                addUser(connection, user);
-                sendMessageToAll(new Message(MessageType.USER_ADDED, user));
-                serverMainLoop(connection, user);
+                roomNumber = chooseRoom(connection);
+                addUserToRoom(connection, user, roomNumber);
+                sendMessageToAllInRoom(new Message(USER_ADDED, user, roomNumber));
+                serverMainLoop(connection, user, roomNumber);
             } catch (IOException | ClassNotFoundException e) {
                 e.printStackTrace();
             }
         }
 
-        private void serverMainLoop(Connection connection, String user) throws IOException, ClassNotFoundException {
-           while (true) {
-               Message message = connection.readMessage();
-               if (message.getMessageType() == MessageType.MESSAGE) {
-                   sendMessageToAll(new Message(MessageType.MESSAGE, user + ": " + message.getData()));
-               }
-           }
-        }
-
-        private static void sendMessageToAll(Message message) {
-            for (Map.Entry<String, Connection> connect : connectionMap.entrySet()) {
-                try {
-                    connect.getValue().sendMessage(message);
-                } catch (IOException e) {
-                    showMessage("Message not sent");
+        private void serverMainLoop(Connection connection, String user, Integer roomNumber) throws IOException, ClassNotFoundException {
+            while (true) {
+                Message message = connection.receiveMessage();
+                if (message.getMessageType() == MESSAGE) {
+                    String msg = String.format("%s : %s", user, message.getData());
+                    sendMessageToAllInRoom(new Message(MESSAGE, msg, roomNumber));
                 }
             }
         }
 
-        private void addUser(Connection connection, String user) throws IOException {
-            connectionMap.put(user, connection);
-            connection.sendMessage(new Message(MessageType.USER_ACCEPTED));
+        private void sendMessageToAllInRoom(Message message) {
+            for (Connection connect : connectionMap.get(message.getRoomNumber()).values()) {
+                connect.sendMessage(message);
+            }
+        }
+
+        private void addUserToRoom(Connection connection, String user, Integer roomNumber) {
+            if (!connectionMap.containsKey(roomNumber)) {
+                connectionMap.put(roomNumber, new ConcurrentHashMap<>());
+            }
+            Map<String, Connection> map = connectionMap.get(roomNumber);
+            map.put(user, connection);
+            connectionMap.put(roomNumber, map);
+            connection.sendMessage(new Message(USER_ACCEPTED));
         }
 
         private String userAuth(Connection connection) throws IOException, ClassNotFoundException {
             while (true) {
-                connection.sendMessage(new Message(MessageType.AUTHORIZATION));
-                Message message = connection.readMessage();
+                connection.sendMessage(new Message(AUTHORIZATION));
+                Message message = connection.receiveMessage();
                 String username = getUsername(message);
-                if (message.getMessageType() == MessageType.AUTHORIZATION &&
+                if (message.getMessageType() == AUTHORIZATION &&
                         message.getUser() != null &&
                         !userMap.containsKey(username)) {
                     userRegistration(connection);
                     continue;
                 }
-                connection.sendMessage(new Message(MessageType.USER_ACCEPTED));
+                connection.sendMessage(new Message(USER_ACCEPTED));
                 return username;
             }
+        }
+
+        private int chooseRoom(Connection connection) throws IOException {
+            connection.sendMessage(new Message(ROOM_CHOICE));
+            Message message = connection.receiveMessage();
+            return message.getRoomNumber();
         }
     }
 
     private static void userRegistration(Connection connection) throws IOException, ClassNotFoundException {
         while (true) {
-            connection.sendMessage(new Message(MessageType.REGISTRATION));
-            Message message = connection.readMessage();
+            connection.sendMessage(new Message(REGISTRATION));
+            Message message = connection.receiveMessage();
             String username = getUsername(message);
             String password = getPassword(message);
-            if (message.getMessageType() == MessageType.REGISTRATION &&
+            if (message.getMessageType() == REGISTRATION &&
                     username != null && !username.isEmpty() && password != null && !password.equals("")) {
                 userMap.put(username, password);
-                connection.sendMessage(new Message(MessageType.USER_ACCEPTED));
+                connection.sendMessage(new Message(USER_ACCEPTED));
                 break;
             }
         }
